@@ -1,57 +1,27 @@
 import pytest
-from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.action_chains import ActionChains
 
 import locators
-from curl import MAIN_SITE, LOGIN_PAGE
-from data import TestData
 
 
 class TestConstructor:
     
-    @pytest.fixture(autouse=True)
-    def setup(self, driver):
-        driver.get(LOGIN_PAGE)
-        driver.find_element(*locators.EMAIL_INPUT).send_keys(TestData.EXISTING_EMAIL)
-        driver.find_element(*locators.PASSWORD_INPUT).send_keys(TestData.EXISTING_PASSWORD)
-        driver.find_element(*locators.LOGIN_SUBMIT_BUTTON).click()
-        WebDriverWait(driver, 10).until(EC.url_to_be(MAIN_SITE))
-        yield
-    
-    def test_switch_to_buns_section(self, driver): 
-        import time
-        time.sleep(2)
-
-        driver.find_element(*locators.SAUCES_SECTION).click()
+    @pytest.mark.parametrize("section_to_test,expected_text", [
+        (locators.SAUCES_SECTION, "Соусы"),
+        (locators.FILLINGS_SECTION, "Начинки"),
+        (locators.BUNS_SECTION, "Булки"),
+    ])
+    def test_switch_to_section(self, login, wait, section_to_test, expected_text):
+       
+        driver = login
+        actions = ActionChains(driver)
         
-        WebDriverWait(driver, 10).until(
-            EC.text_to_be_present_in_element(locators.ACTIVE_SECTION, "Соусы")
-        )
-        driver.find_element(*locators.BUNS_SECTION).click()
-        WebDriverWait(driver, 10).until(
-            EC.text_to_be_present_in_element(locators.ACTIVE_SECTION, "Булки")
-        )
+        element = wait.until(EC.element_to_be_clickable(section_to_test))
+        driver.execute_script("arguments[0].scrollIntoView(true);", element)
+        actions.move_to_element(element).pause(0.5).click().perform()
+        
+        wait.until(EC.text_to_be_present_in_element(locators.ACTIVE_SECTION, expected_text))
         
         active_section = driver.find_element(*locators.ACTIVE_SECTION)
-        assert "Булки" in active_section.text
-    
-    def test_switch_to_sauces_section(self, driver):
-        
-        driver.find_element(*locators.SAUCES_SECTION).click()
-        
-        WebDriverWait(driver, 10).until(
-            EC.text_to_be_present_in_element(locators.ACTIVE_SECTION, "Соусы")
-        )
-        
-        active_section = driver.find_element(*locators.ACTIVE_SECTION)
-        assert "Соусы" in active_section.text
-    
-    def test_switch_to_fillings_section(self, driver):
-        driver.find_element(*locators.FILLINGS_SECTION).click()
-        
-        WebDriverWait(driver, 10).until(
-            EC.text_to_be_present_in_element(locators.ACTIVE_SECTION, "Начинки")
-        )
-        
-        active_section = driver.find_element(*locators.ACTIVE_SECTION)
-        assert "Начинки" in active_section.text
+        assert expected_text in active_section.text
